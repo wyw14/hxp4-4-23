@@ -9,12 +9,14 @@ import {
   type SignalMatch
 } from './signal';
 import type { Signal, SignalsData, TunerState, WeatherOffset } from './types';
+import { StormGraph } from './stormGraph';
 
 class Game {
   private renderer: CRTRenderer | null = null;
   private audioManager: AudioManager;
   private knobController: KnobController | null = null;
   private weatherSystem: WeatherSystem | null = null;
+  private stormGraph: StormGraph | null = null;
 
   private signals: Signal[] = [];
   private tuner: TunerState = { vhf: 100, uhf: 400, antenna: 180 };
@@ -78,6 +80,12 @@ class Game {
     const canvas = document.getElementById('glCanvas') as HTMLCanvasElement;
     this.renderer = new CRTRenderer(canvas);
 
+    const stormCanvas = document.getElementById('stormGraphCanvas') as HTMLCanvasElement;
+    this.stormGraph = new StormGraph(stormCanvas);
+    if (this.weatherSystem) {
+      this.stormGraph.setMaxOffset(this.weatherSystem.getMaxOffset());
+    }
+
     this.knobController = new KnobController([
       {
         param: 'vhf',
@@ -121,6 +129,7 @@ class Game {
 
     window.addEventListener('resize', () => {
       this.renderer?.resize();
+      this.stormGraph?.resize();
     });
 
     void this.knobController;
@@ -227,6 +236,10 @@ class Game {
       this.audioManager.update();
 
       this.updateUI();
+
+      if (this.stormGraph && this.weatherSystem) {
+        this.stormGraph.render(this.weatherSystem.getHistory(), this.weatherOffset);
+      }
     }
 
     requestAnimationFrame(() => this.animate());

@@ -124,6 +124,13 @@ export function getSignalColor(signal: Signal | null, strength: number): [number
   return [r + m, g + m, b + m];
 }
 
+export interface OffsetHistoryPoint {
+  timestamp: number;
+  vhfShift: number;
+  uhfShift: number;
+  antennaShift: number;
+}
+
 export class WeatherSystem {
   private config: WeatherConfig;
   private offset: WeatherOffset;
@@ -132,6 +139,10 @@ export class WeatherSystem {
   private stormPulse: number = 0;
   private flashActive: boolean = false;
   private flashTimer: number = 0;
+  private history: OffsetHistoryPoint[] = [];
+  private maxHistoryPoints: number = 300;
+  private lastHistoryRecord: number = 0;
+  private historyIntervalMs: number = 50;
 
   constructor(config: WeatherConfig) {
     this.config = config;
@@ -178,10 +189,36 @@ export class WeatherSystem {
       }
     }
 
+    if (now - this.lastHistoryRecord >= this.historyIntervalMs) {
+      this.history.push({
+        timestamp: now,
+        vhfShift: this.offset.vhfShift,
+        uhfShift: this.offset.uhfShift,
+        antennaShift: this.offset.antennaShift
+      });
+      if (this.history.length > this.maxHistoryPoints) {
+        this.history.shift();
+      }
+      this.lastHistoryRecord = now;
+    }
+
     return {
       offset: this.offset,
       rainIntensity,
       flash: this.flashActive
     };
+  }
+
+  getHistory(): OffsetHistoryPoint[] {
+    return this.history;
+  }
+
+  getMaxOffset(): number {
+    const { vhfShift, uhfShift, antennaShift } = this.config.baseOffset;
+    return Math.max(
+      Math.abs(vhfShift[0]), Math.abs(vhfShift[1]),
+      Math.abs(uhfShift[0]), Math.abs(uhfShift[1]),
+      Math.abs(antennaShift[0]), Math.abs(antennaShift[1])
+    );
   }
 }
